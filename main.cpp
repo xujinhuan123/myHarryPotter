@@ -13,10 +13,10 @@ struct Book
     vector<size_t> line_breaks;
 };
 
-vector<Book> loadBooks(const vector<string> &filenames)
+vector<Book> loadBooks(vector<string> &filenames)
 {
     vector<Book> books;
-    for (const auto &filename : filenames)
+    for (auto &filename : filenames)
     {
         ifstream file(filename);
         if (!file)
@@ -44,6 +44,7 @@ vector<Book> loadBooks(const vector<string> &filenames)
         {
             line_breaks.push_back(content.size());
         }
+        filename.erase(0, 7); // 删除路径
 
         books.push_back({filename, content, content_lower, line_breaks});
     }
@@ -77,7 +78,6 @@ vector<MatchResult> searchBooks(const vector<Book> &books, const string &keyword
             // 获取上下文（前面一行+当前行）
             int start_line = max(0, line_num - 1);
             int end_line = min((int)book.line_breaks.size() - 1, line_num);
-
             vector<string> context;
             for (int i = start_line; i <= end_line; ++i)
             {
