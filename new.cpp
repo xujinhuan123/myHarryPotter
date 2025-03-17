@@ -23,7 +23,7 @@ struct Book
 
 // 罗马数字页码
 const unordered_map<string, int> roman_numerals = {
-    {"vii", 7}, {"viii", 8}, {"xi", 11}, {"xii", 12}, {"xiii", 13}, {"xiv", 14}, {"xv", 15}, {"xvi", 16}, {"xvii", 17}};
+    {"vii", 760}, {"viii", 761}, {"xi", 762}, {"xii", 763}, {"xiii", 764}, {"xiv", 765}, {"xv", 766}, {"xvi", 767}, {"xvii", 768}};
 
 bool is_page_number(const string &str)
 {
@@ -277,6 +277,14 @@ vector<Book> loadBooks(vector<string> &filenames, string keyword)
 
 void printResults(vector<Book> &books, string keyword)
 {
+    // 反向映射
+    std::unordered_map<int, std::string> reverse_roman_numerals;
+
+    // 填充反向映射
+    for (const auto &pair : roman_numerals)
+    {
+        reverse_roman_numerals[pair.second] = pair.first;
+    }
     // 打印结果
     int count = 0;
     for (int i = 0; i < books.size(); i++)
@@ -285,9 +293,16 @@ void printResults(vector<Book> &books, string keyword)
         {
             count++;
             cout << count << "\t"
-                 << keyword << "\t\t"
-                 << books[i].Info[j].page << "\t"
-                 << books[i].Info[j].chapter << "\t"
+                 << keyword << "\t\t";
+            //<< books[i].Info[j].page << "\t"
+            if (books[i].Info[j].page > 759)
+            {
+                auto it = reverse_roman_numerals.find(books[i].Info[j].page);
+                cout << it->second << "\t";
+            }
+            else
+                cout << books[i].Info[j].page << "\t";
+            cout << books[i].Info[j].chapter << "\t"
                  << books[i].name << "\n";
         }
     }
@@ -295,6 +310,7 @@ void printResults(vector<Book> &books, string keyword)
 
 int main()
 {
+
     vector<string> filenames = {
         /*"./book/HP2--Harry_Potter_and_the_Chamber_of_Secrets_Book_2_.txt",
         "./book/HP7--Harry_Potter_and_the_Deathly_Hallows_Book_7_.txt",
