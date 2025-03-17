@@ -22,9 +22,8 @@ struct Book
 // 检查字符串是否只包含数字  获取页码
 bool is_only_digit(const std::string &str)
 {
-    return std::all_of(str.begin(), str.end(), ::isdigit);
+    return !str.empty() && std::all_of(str.begin(), str.end(), ::isdigit);
 }
-
 // 找页码
 int getPage(ifstream &file, int lineCount)
 {
