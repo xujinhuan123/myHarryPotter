@@ -96,8 +96,19 @@ vector<MatchResult> searchBooks(const vector<Book> &books, const string &keyword
     return results;
 }
 
-void printResults(const vector<MatchResult> &results)
+void printResults(const vector<MatchResult> &results, string keyword)
 {
+    int count = 0; // 记录找到的每一个
+    for (int i = 0; i < results.size(); i++)
+    {
+        count++;
+        cout << count << "\t"
+             << keyword << "\t\t"
+             << results[i].pos << "\t"
+             << results[i].line_number << "\t"
+             << results[i].filename << "\n";
+    }
+    /*
     for (const auto &res : results)
     {
         cout << "File: " << res.filename << "\n"
@@ -110,6 +121,7 @@ void printResults(const vector<MatchResult> &results)
         }
         cout << "--------------------\n";
     }
+        */
 }
 
 int main()
@@ -130,7 +142,8 @@ int main()
     getline(cin, keyword);
 
     auto results = searchBooks(books, keyword);
-    printResults(results);
+    cout << "序号\t" << "人名/地名\t" << "页码\t" << "章节\t" << "书名" << endl;
+    printResults(results, keyword);
 
     return 0;
 }
