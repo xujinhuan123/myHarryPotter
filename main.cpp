@@ -24,11 +24,11 @@ vector<Book> loadBooks(const vector<string> &filenames)
             cerr << "Error opening: " << filename << endl;
             continue;
         }
-        string content((istreambuf_iterator<char>(file)), {});
+        string content((istreambuf_iterator<char>(file)), {}); // 一个文件的内容
         file.close();
 
         string content_lower = content;
-        transform(content_lower.begin(), content_lower.end(), content_lower.begin(), ::tolower);
+        transform(content_lower.begin(), content_lower.end(), content_lower.begin(), ::tolower); // 转换为小写
 
         vector<size_t> line_breaks;
         size_t last_pos = 0;
@@ -74,9 +74,9 @@ vector<MatchResult> searchBooks(const vector<Book> &books, const string &keyword
             auto line_it = upper_bound(book.line_breaks.begin(), book.line_breaks.end(), pos);
             int line_num = line_it - book.line_breaks.begin();
 
-            // 获取上下文（前后各2行）
-            int start_line = max(0, line_num - 2);
-            int end_line = min((int)book.line_breaks.size() - 1, line_num + 2);
+            // 获取上下文（前面一行+当前行）
+            int start_line = max(0, line_num - 1);
+            int end_line = min((int)book.line_breaks.size() - 1, line_num);
 
             vector<string> context;
             for (int i = start_line; i <= end_line; ++i)
