@@ -276,6 +276,7 @@ int printResults(vector<Book> &books, string keyword)
     int count = 0;
     for (int i = 0; i < books.size(); i++)
     {
+        books[i].name.erase(0, 7); // 去除路径
         for (int j = 0; j < books[i].Info.size(); j++)
         {
             count++;
@@ -298,7 +299,8 @@ int printResults(vector<Book> &books, string keyword)
 
 void printCOntext(int count, vector<Book> &books)
 {
-    cout << "上下文:" << endl;
+    cout << "上下文:\n***********************************************\n"
+         << endl;
     int index = 0;
     for (int i = 0; i < books.size(); i++)
     {
@@ -341,11 +343,28 @@ int main()
     }
     while (num > 0)
     {
-        int count;
+        string count_str;
         cout << "Enter count: ";
-        cin >> count;
+        cin >> count_str;
+        if (!all_of(count_str.begin(), count_str.end(), ::isdigit))
+        {
+            cout << "count should be a number" << endl;
+            continue;
+        }
+        int count = stoi(count_str);
+        if (count > num)
+        {
+            cout << "count should less than " << num << endl;
+            continue;
+        }
+        else if (count <= 0)
+        {
+            cout << "count should more than 0" << endl;
+            continue;
+        }
+
         printCOntext(count, books);
-        cout << "是否继续？(1/0)" << endl;
+        cout << "***********************************************\ncontinue?(1/0)" << endl;
         int flag;
         cin >> flag;
         if (flag == 0)
