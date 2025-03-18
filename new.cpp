@@ -6,6 +6,8 @@
 #include <utility>
 #include <iomanip>
 #include <unordered_map>
+#include <locale>
+#include <windows.h>
 using namespace std;
 
 struct bookInfo // 需要的信息
@@ -21,42 +23,65 @@ struct Book
     vector<bookInfo> Info;
 };
 
+string UTF8ToGB(const char *str)
+{
+    string result;
+    WCHAR *strSrc;
+    LPSTR szRes;
+
+    int i = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
+    strSrc = new WCHAR[i + 1];
+    MultiByteToWideChar(CP_UTF8, 0, str, -1, strSrc, i);
+
+    i = WideCharToMultiByte(CP_ACP, 0, strSrc, -1, NULL, 0, NULL, NULL);
+    szRes = new CHAR[i + 1];
+    WideCharToMultiByte(CP_ACP, 0, strSrc, -1, szRes, i, NULL, NULL);
+
+    result = szRes;
+    delete[] strSrc;
+    delete[] szRes;
+
+    return result;
+}
+
 // 罗马数字页码
 const unordered_map<string, int> roman_numerals = {
     {"vii", 760}, {"viii", 761}, {"xi", 762}, {"xii", 763}, {"xiii", 764}, {"xiv", 765}, {"xv", 766}, {"xvi", 767}, {"xvii", 768}};
 
 bool is_page_number(const string &str)
 {
+    // 阿拉伯数字验证（1-99999）
     if (!str.empty() && all_of(str.begin(), str.end(), ::isdigit))
     {
         int num = stoi(str);
-        return num > 0 && num < 1000; // 允许常规页码
+        return num > 0 && num < 100000;
     }
 
+    // 罗马数字验证（限定映射表范围）
     string lower_str = str;
     transform(lower_str.begin(), lower_str.end(), lower_str.begin(), ::tolower);
     return roman_numerals.find(lower_str) != roman_numerals.end();
 }
 
-// 检查字符串是否只包含数字  获取页码
-/*
-bool is_only_digit(const std::string &str)
-{
-    return !str.empty() && std::all_of(str.begin(), str.end(), ::isdigit);
-}*/
-
 // 统一转换为数字
 int convert_to_number(const string &str)
 {
-    if (isdigit(str[0]))
+    try
     {
-        return stoi(str);
+        if (isdigit(str[0]))
+        {
+            return stoi(str);
+        }
+        else
+        {
+            string lower_str = str;
+            transform(lower_str.begin(), lower_str.end(), lower_str.begin(), ::tolower);
+            return roman_numerals.at(lower_str);
+        }
     }
-    else
+    catch (...)
     {
-        string lower_str = str;
-        transform(lower_str.begin(), lower_str.end(), lower_str.begin(), ::tolower);
-        return roman_numerals.at(lower_str);
+        return -1; // 无效页码
     }
 }
 
@@ -66,44 +91,49 @@ vector<pair<int, int>> get_valid_pages(const vector<string> &content)
     vector<pair<int, int>> valid_pages;
     int last_page = -1;
     int last_valid_line = -2;
-    bool after_roman = false; // 新增：标记是否刚处理过罗马数字
+    const int MAX_PAGE_JUMP = 10;
+    bool roman_sequence_end = false; // 新增：标记罗马数字序列结束
 
     for (int i = 0; i < content.size(); ++i)
     {
         if (is_page_number(content[i]))
         {
             int current_page = convert_to_number(content[i]);
-            bool is_roman = !isdigit(content[i][0]); // 判断当前页码是否为罗马数字
+            bool is_roman = !isdigit(content[i][0]);
 
             // 处理罗马数字后的第一个阿拉伯数字
-            if (after_roman && !is_roman)
+            if (roman_sequence_end && !is_roman)
             {
-                // 作为新序列的起始页码
-                bool found_continuation = false;
+                // 作为新序列起点独立验证
+                bool valid_new_sequence = false;
+
+                // 验证后续是否存在连续页码
                 for (int j = i + 1; j < content.size(); ++j)
                 {
                     if (is_page_number(content[j]))
                     {
                         int next_page = convert_to_number(content[j]);
-                        if (next_page == current_page + 1)
+                        if (next_page > current_page && next_page <= current_page + MAX_PAGE_JUMP)
                         {
-                            found_continuation = true;
+                            valid_new_sequence = true;
                             break;
                         }
                     }
                 }
-                if (found_continuation)
+
+                if (valid_new_sequence)
                 {
+                    // 重置原有序列
                     valid_pages.emplace_back(i, current_page);
                     last_page = current_page;
                     last_valid_line = i;
-                    after_roman = false; // 重置标记
-                    continue;
+                    roman_sequence_end = false; // 重置标记
+                    continue;                   // 跳过后续检查
                 }
             }
 
-            // 原有逻辑增加罗马数字处理
-            if (valid_pages.empty() || after_roman)
+            // 主验证逻辑
+            if (valid_pages.empty())
             {
                 bool found_continuation = false;
                 for (int j = i + 1; j < content.size(); ++j)
@@ -111,7 +141,7 @@ vector<pair<int, int>> get_valid_pages(const vector<string> &content)
                     if (is_page_number(content[j]))
                     {
                         int next_page = convert_to_number(content[j]);
-                        if (next_page == current_page + 1)
+                        if (next_page > current_page && next_page <= current_page + MAX_PAGE_JUMP)
                         {
                             found_continuation = true;
                             break;
@@ -123,15 +153,26 @@ vector<pair<int, int>> get_valid_pages(const vector<string> &content)
                     valid_pages.emplace_back(i, current_page);
                     last_page = current_page;
                     last_valid_line = i;
-                    after_roman = is_roman; // 设置标记
+                    roman_sequence_end = is_roman; // 记录罗马数字序列开始
                 }
             }
-            else if (current_page == last_page + 1 && i > last_valid_line)
+            else if (current_page > last_page &&
+                     current_page <= last_page + MAX_PAGE_JUMP &&
+                     i > last_valid_line)
             {
                 valid_pages.emplace_back(i, current_page);
                 last_page = current_page;
                 last_valid_line = i;
-                after_roman = is_roman; // 更新标记
+
+                // 当切换到阿拉伯数字时标记序列结束
+                if (roman_sequence_end && !is_roman)
+                {
+                    roman_sequence_end = false;
+                }
+                else
+                {
+                    roman_sequence_end = is_roman;
+                }
             }
         }
     }
@@ -151,23 +192,6 @@ int getPage(int keywordLine, const vector<pair<int, int>> &valid_pages)
     }
     return -1; // 未找到后续页码
 }
-/*
-int getPage(ifstream &file, int lineCount)
-{
-    string line;
-    while (lineCount--) // 到达指定行开始找
-    {
-        getline(file, line);
-    }
-    while (1)
-    {
-        getline(file, line);     // 逐行读取
-        if (is_only_digit(line)) // 如果这一行是数字
-        {
-            return stoi(line); // 转换为int
-        }
-    }
-}*/
 
 // 找前一行和当前行的内容
 string getContext(const vector<string> &content, int lineNum)
@@ -178,23 +202,6 @@ string getContext(const vector<string> &content, int lineNum)
     context += content[lineNum];
     return context;
 }
-/*
-string getContext(ifstream &file, int lineCount)
-{
-    string ans;
-    string line;
-    while (--lineCount != 1 && lineCount != 0) // 定位到上一行
-    {
-        getline(file, line);
-    }
-    getline(file, line); // 读取上一行
-    ans += line;         // 添加到答案
-    ans += "\n";         // 换行
-    getline(file, line); // 读取当前行
-    ans += line;         // 添加到答案
-    return ans;
-}
-    */
 
 // 找章节  碰到chapter关键词就+1 ，直到lineCount行
 int getChapter(const vector<string> &content, int lineNum)
@@ -217,25 +224,6 @@ int getChapter(const vector<string> &content, int lineNum)
     }
     return chapter;
 }
-/*
-int getChapter(ifstream &file, int lineCount)
-{
-    string line;
-    int chapter = 0;
-    while (lineCount--)
-    {
-        getline(file, line);
-        if ((line.find("Chapter") != string::npos || line.find("CHAPTER") != string::npos) && line.find("CHAPTER ZERO") == string::npos) // 排除特殊章
-        {
-            chapter++;
-        }
-        else if (line.find("Chapter Zero") != string::npos)
-        {
-            chapter = 0;
-        }
-    }
-    return chapter;
-}*/
 
 // 加载书籍信息 同时做完查找将结果放入books中
 vector<Book> loadBooks(vector<string> &filenames, string keyword)
@@ -274,42 +262,8 @@ vector<Book> loadBooks(vector<string> &filenames, string keyword)
     }
     return books;
 }
-/*
-vector<Book> loadBooks(vector<string> &filenames, string keyword)
-{
-    vector<Book> books;
-    int page; // 页码
-    // bool isFind = false; // 标记是否找到关键词 找到关键词以后才需要找页码
-    for (auto filename : filenames)
-    {
-        ifstream file(filename);          // 打开每一个文件
-        string line;                      // 记录每一行的字符串
-        unsigned long long lineCount = 0; // 记录在找第几行
-        while (getline(file, line))       // 读取每一行
-        {
-            lineCount++;
-            // int index = 0;
-            size_t pos = 0;                            // 处理一行多个
-            while (line.find(keyword) != string::npos) // 如果这一行包含关键词
-            {
-                // index = line.find(keyword); // 找到关键词的位置
-                //  找页码和章节和上下文
-                page = getPage(filename, lineCount);
-                string context = getContext(filename, lineCount);
-                int chapter = getChapter(filename, lineCount);
-                // books.push_back(Book{filename, {{context, page, chapter}}}); // 添加到books中
-                books.push_back(Book{
-                    filename,
-                    {{context, page, chapter}}});
-                pos += keyword.length(); // 更新位置
-            }
-        }
-        file.close();
-    }
-    return books;
-}*/
 
-void printResults(vector<Book> &books, string keyword)
+int printResults(vector<Book> &books, string keyword)
 {
     // 反向映射
     std::unordered_map<int, std::string> reverse_roman_numerals;
@@ -340,25 +294,39 @@ void printResults(vector<Book> &books, string keyword)
                  << books[i].name << "\n";
         }
     }
+    return count;
 }
 
-void printCOntext(int index, vector<Book> &books)
+void printCOntext(int count, vector<Book> &books)
 {
     cout << "上下文:" << endl;
+    int index = 0;
+    for (int i = 0; i < books.size(); i++)
+    {
+        for (int j = 0; j < books[i].Info.size(); j++)
+        {
+            index++;
+            if (index == count) // 找到对应的上下文
+            {
+                cout << UTF8ToGB(books[i].Info[j].context.c_str()) << endl;
+                return;
+            }
+        }
+    }
 }
 
 int main()
 {
 
     vector<string> filenames = {
-        /*"./book/HP2--Harry_Potter_and_the_Chamber_of_Secrets_Book_2_.txt",
+        "./book/HP2--Harry_Potter_and_the_Chamber_of_Secrets_Book_2_.txt",
         "./book/HP7--Harry_Potter_and_the_Deathly_Hallows_Book_7_.txt",
         "./book/J.K. Rowling - HP 3 - Harry Potter and the Prisoner of Azkaban.txt",
         "./book/J.K. Rowling - HP 4 - Harry Potter and the Goblet of Fire.txt",
         "./book/J.K. Rowling - HP 6 - Harry Potter and the Half-Blood Prince.txt",
-        "./book/J.K. Rowling - Quidditch Through the Ages.txt",*/
-        "../book/J.K. Rowling - The Tales of Beedle the Bard.txt",
-        "../book/J.K.Rowling - HP 0 - Harry Potter Prequel.txt"};
+        "./book/J.K. Rowling - Quidditch Through the Ages.txt",
+        "./book/J.K. Rowling - The Tales of Beedle the Bard.txt",
+        "./book/J.K.Rowling - HP 0 - Harry Potter Prequel.txt"};
     // 注意最后要把../改成./ 因为在vscode中我使用的是C++ compile run 工作台在output文件夹里
     string keyword;
     cout << "Enter keyword: ";
@@ -366,6 +334,23 @@ int main()
 
     vector<Book> books = loadBooks(filenames, keyword);
     cout << "序号\t" << "人名/地名\t" << "页码\t" << "章节\t" << "书名" << endl;
-    printResults(books, keyword);
+    int num = printResults(books, keyword);
+    if (num == 0)
+    {
+        cout << "No results found." << endl;
+        return 0;
+    }
+    while (num > 0)
+    {
+        int count;
+        cout << "Enter count: ";
+        cin >> count;
+        printCOntext(count, books);
+        cout << "是否继续？(1/0)" << endl;
+        int flag;
+        cin >> flag;
+        if (flag == 0)
+            break;
+    }
     return 0;
 }
