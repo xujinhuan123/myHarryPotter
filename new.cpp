@@ -27,14 +27,15 @@ const unordered_map<string, int> roman_numerals = {
 
 bool is_page_number(const string &str)
 {
-    // 检查阿拉伯数字
     if (!str.empty() && all_of(str.begin(), str.end(), ::isdigit))
-        return true;
+    {
+        int num = stoi(str);
+        return num > 0 && num < 1000; // 允许常规页码
+    }
 
-    // 检查指定罗马数字（全小写处理）
-    string lower_str;
-    transform(str.begin(), str.end(), back_inserter(lower_str), ::tolower);
-    return roman_numerals.count(lower_str) > 0;
+    string lower_str = str;
+    transform(lower_str.begin(), lower_str.end(), lower_str.begin(), ::tolower);
+    return roman_numerals.find(lower_str) != roman_numerals.end();
 }
 
 // 检查字符串是否只包含数字  获取页码
@@ -48,11 +49,15 @@ bool is_only_digit(const std::string &str)
 int convert_to_number(const string &str)
 {
     if (isdigit(str[0]))
+    {
         return stoi(str);
-
-    string lower_str;
-    transform(str.begin(), str.end(), back_inserter(lower_str), ::tolower);
-    return roman_numerals.at(lower_str);
+    }
+    else
+    {
+        string lower_str = str;
+        transform(lower_str.begin(), lower_str.end(), lower_str.begin(), ::tolower);
+        return roman_numerals.at(lower_str);
+    }
 }
 
 // 检查是不是合法的页码
@@ -61,17 +66,19 @@ vector<pair<int, int>> get_valid_pages(const vector<string> &content)
     vector<pair<int, int>> valid_pages;
     int last_page = -1;
     int last_valid_line = -2;
+    bool after_roman = false; // 新增：标记是否刚处理过罗马数字
 
     for (int i = 0; i < content.size(); ++i)
     {
         if (is_page_number(content[i]))
         {
             int current_page = convert_to_number(content[i]);
+            bool is_roman = !isdigit(content[i][0]); // 判断当前页码是否为罗马数字
 
-            // 第一个合法页码验证
-            if (valid_pages.empty())
+            // 处理罗马数字后的第一个阿拉伯数字
+            if (after_roman && !is_roman)
             {
-                // 向后查找整个文件确认连续性
+                // 作为新序列的起始页码
                 bool found_continuation = false;
                 for (int j = i + 1; j < content.size(); ++j)
                 {
@@ -90,14 +97,41 @@ vector<pair<int, int>> get_valid_pages(const vector<string> &content)
                     valid_pages.emplace_back(i, current_page);
                     last_page = current_page;
                     last_valid_line = i;
+                    after_roman = false; // 重置标记
+                    continue;
                 }
             }
-            // 后续页码必须严格递增且行号递增
+
+            // 原有逻辑增加罗马数字处理
+            if (valid_pages.empty() || after_roman)
+            {
+                bool found_continuation = false;
+                for (int j = i + 1; j < content.size(); ++j)
+                {
+                    if (is_page_number(content[j]))
+                    {
+                        int next_page = convert_to_number(content[j]);
+                        if (next_page == current_page + 1)
+                        {
+                            found_continuation = true;
+                            break;
+                        }
+                    }
+                }
+                if (found_continuation)
+                {
+                    valid_pages.emplace_back(i, current_page);
+                    last_page = current_page;
+                    last_valid_line = i;
+                    after_roman = is_roman; // 设置标记
+                }
+            }
             else if (current_page == last_page + 1 && i > last_valid_line)
             {
                 valid_pages.emplace_back(i, current_page);
                 last_page = current_page;
                 last_valid_line = i;
+                after_roman = is_roman; // 更新标记
             }
         }
     }
@@ -306,6 +340,11 @@ void printResults(vector<Book> &books, string keyword)
                  << books[i].name << "\n";
         }
     }
+}
+
+void printCOntext(int index, vector<Book> &books)
+{
+    cout << "上下文:" << endl;
 }
 
 int main()
