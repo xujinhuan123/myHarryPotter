@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <locale>
 #include <windows.h>
+#include <time.h>
 using namespace std;
 
 struct bookInfo // 需要的信息
@@ -259,6 +260,7 @@ vector<Book> loadBooks(vector<string> &filenames, string keyword)
             }
         }
     }
+
     return books;
 }
 
@@ -299,6 +301,10 @@ int printResults(vector<Book> &books, string keyword)
 
 void printCOntext(int count, vector<Book> &books)
 {
+    clock_t startTime, endTime;
+    startTime = clock();
+    //
+
     cout << "上下文:\n***********************************************\n"
          << endl;
     int index = 0;
@@ -310,6 +316,8 @@ void printCOntext(int count, vector<Book> &books)
             if (index == count) // 找到对应的上下文
             {
                 cout << UTF8ToGB(books[i].Info[j].context.c_str()) << endl;
+                endTime = clock();
+                cout << "运行时间：" << (double)(endTime - startTime) / CLOCKS_PER_SEC << "s" << endl;
                 return;
             }
         }
@@ -333,9 +341,13 @@ int main()
     cout << "Enter keyword: ";
     cin >> keyword;
 
+    clock_t startTime, endTime;
+    startTime = clock();
     vector<Book> books = loadBooks(filenames, keyword);
     cout << "序号\t" << "人名/地名\t" << "页码\t" << "章节\t" << "书名" << endl;
     int num = printResults(books, keyword);
+    endTime = clock();
+    cout << "遍历书籍运行时间：" << (double)(endTime - startTime) / CLOCKS_PER_SEC << "s" << endl;
     if (num == 0)
     {
         cout << "No results found." << endl;
